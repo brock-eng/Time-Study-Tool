@@ -1,0 +1,386 @@
+Sub add_new()
+
+Dim time As Integer, downtime As Integer, rowIndex As Integer, startingRow As Integer
+Dim notes As String
+time = 0
+startingRow = 12
+rowIndex = startingRow
+time = CInt(Cells(8, 7))
+downtime = CInt(Cells(8, 4))
+notes = CStr(Cells(9, 4))
+' MsgBox (time)
+
+If time = 0 And Cells(7, 9).Value <> 0 Then
+    MsgBox ("Error: Blank Time")
+    GoTo EndMacro
+End If
+
+Dim columnIndex As Integer
+COL_INDEX = 4
+While True
+    If Cells(rowIndex, COL_INDEX - 2) = 0 Then
+        Cells(rowIndex, COL_INDEX) = time
+        Cells(rowIndex, COL_INDEX + 1) = downtime
+        GoTo EndWhile
+    Else
+        rowIndex = rowIndex + 1
+    End If
+Wend
+EndWhile:
+
+If rowIndex = startingRow Then
+    Cells(rowIndex, COL_INDEX + 2) = time
+    Cells(rowIndex, COL_INDEX + 3) = time / (3600) 'hrs
+    Cells(rowIndex, COL_INDEX + 4) = time - downtime
+    Cells(rowIndex, COL_INDEX + 5) = (time - downtime) / 3600
+    Cells(rowIndex, COL_INDEX + 6) = notes
+    Cells(rowIndex, COL_INDEX - 2) = 1
+    Cells(rowIndex, COL_INDEX - 1) = Cells(7, 4)
+    Cells(rowIndex, COL_INDEX + 7) = 1
+    Cells(8, 9).Value = 0
+Else
+    Cells(rowIndex, COL_INDEX + 2) = time - Cells(rowIndex - 1, COL_INDEX).Value
+    Cells(rowIndex, COL_INDEX + 3) = CInt(Cells(rowIndex, COL_INDEX + 2)) / (3600) 'hrs
+    Cells(rowIndex, COL_INDEX + 4) = Cells(rowIndex, COL_INDEX + 2) - downtime
+    Cells(rowIndex, COL_INDEX + 5) = Cells(rowIndex, COL_INDEX + 4).Value / 3600
+    Cells(rowIndex, COL_INDEX + 6) = notes
+    Cells(rowIndex, COL_INDEX - 2) = Cells(rowIndex - 1, COL_INDEX - 2) + 1 'index marker
+    Cells(rowIndex, COL_INDEX - 1) = Cells(7, 4)
+    Cells(rowIndex, COL_INDEX + 7) = Cells(9, 9)
+    Cells(8, 9).Value = Cells(8, 9).Value + 1
+End If
+
+Cells(rowIndex, COL_INDEX + 8).Formula = "=IF(ISNA(VLOOKUP(R[0]C[-1], R4C11:R9C12, 2)), 0,VLOOKUP(R[0]C[-1], R4C11:R9C12, 2))"
+
+Call draw_border_grid(Range(Cells(rowIndex, COL_INDEX - 2), Cells(rowIndex, COL_INDEX + 8)))
+
+Cells(7, 4) = 0
+Cells(8, 4) = 0
+Cells(9, 4).Value = "-"
+
+' Figuring out next step number
+If Cells(9, 9).Value = Cells(6, 7).Value Then
+    Cells(9, 9).Value = 1
+Else
+    Cells(9, 9).Value = Cells(9, 9).Value + 1
+End If
+
+Cells(rowIndex, COL_INDEX - 1).NumberFormat = "hh:mm:ss"
+Cells(rowIndex, COL_INDEX - 2).NumberFormat = "###"
+Cells(rowIndex, COL_INDEX + 3).NumberFormat = "0.000"
+Cells(rowIndex, COL_INDEX + 5).NumberFormat = "0.000"
+Cells(rowIndex, COL_INDEX + 7).NumberFormat = "0"
+
+EndMacro:
+End Sub
+
+
+Sub clear()
+
+clearCheck = MsgBox("Clear all current data?", vbYesNo + vbQuestion, "Time Study Tool")
+
+If clearCheck = vbYes Then
+    Dim cellRange As Object
+    Set cellRange = Range(Cells(12, 1), Cells(1000000, 12))
+    cellRange.clear
+    Cells(8, 9).Value = 0
+    Cells(9, 9).Value = 1
+Else
+End If
+End Sub
+
+Sub clear_last()
+Dim COL_INDEX As Integer, rowIndex As Integer, dataEntries As Integer
+COL_INDEX = 2
+rowIndex = 12
+dataEntries = 10
+
+Cells(8, 9).Value = Cells(8, 9).Value - 1
+
+If Cells(8, 9).Value < 0 Then
+    Cells(8, 9).Value = 0
+End If
+
+If Cells(12, COL_INDEX) = 0 Then
+    GoTo EndMacro
+End If
+
+If Cells(9, 9).Value = 1 Then
+    Cells(9, 9).Value = Cells(6, 7).Value
+Else
+    Cells(9, 9).Value = Cells(9, 9).Value - 1
+End If
+
+While True
+    If Cells(rowIndex, COL_INDEX) = 0 Then
+        GoTo EndWhile
+    Else
+        rowIndex = rowIndex + 1
+    End If
+Wend
+EndWhile:
+
+rowIndex = rowIndex - 1
+Range(Cells(rowIndex, COL_INDEX), Cells(rowIndex, COL_INDEX + dataEntries)).ClearContents
+Call ClearRow(Range(Cells(rowIndex, COL_INDEX), Cells(rowIndex, COL_INDEX + dataEntries)))
+
+EndMacro:
+End Sub
+
+Sub draw_border_grid(gridArea)
+
+gridArea.Borders(xlDiagonalDown).LineStyle = xlNone
+gridArea.Borders(xlDiagonalUp).LineStyle = xlNone
+
+    With gridArea.Borders(xlEdgeLeft)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With gridArea.Borders(xlEdgeTop)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With gridArea.Borders(xlEdgeBottom)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With gridArea.Borders(xlEdgeRight)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With gridArea.Borders(xlInsideVertical)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With gridArea.Borders(xlInsideHorizontal)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With gridArea
+        .HorizontalAlignment = xlCenter
+        .VerticalAlignment = xlCenter
+        .WrapText = False
+        .Orientation = 0
+        .AddIndent = False
+        .IndentLevel = 0
+        .ShrinkToFit = False
+        .ReadingOrder = xlContext
+        .MergeCells = False
+    End With
+    gridArea.NumberFormat = "0.00"
+End Sub
+
+
+Sub export()
+
+Dim rowIndex As Integer
+rowIndex = 1
+
+rowIndex = CurrentEmptyRow(1)
+Worksheets("Output").Cells(rowIndex, 1) = Worksheets("Data Input").Cells(5, 7)
+Call Highlight(Worksheets("Output").Cells(rowIndex, 1))
+rowIndex = rowIndex + 1
+
+Call CopyDataSet(rowIndex)
+
+rowIndex = CurrentEmptyRow(rowIndex)
+
+
+' Averages '
+Dim processName As String
+Worksheets("Data Input").Select
+For processRowIndex = 1 To 6
+    If Cells(processRowIndex + 3, 12).Value = 0 Then
+        GoTo NextProcess
+    Else
+        processName = Cells(processRowIndex + 3, 12)
+        Call GetAverages(processName, rowIndex)
+        rowIndex = CurrentEmptyRow(rowIndex)
+    End If
+NextProcess:
+Next processRowIndex
+
+Worksheets("Output").Select
+Cells(rowIndex, 1).Select
+
+With Columns("A:A")
+    .HorizontalAlignment = xlRight
+    .WrapText = False
+    .Orientation = 0
+    .AddIndent = False
+    .IndentLevel = 0
+    .ShrinkToFit = False
+    .ReadingOrder = xlContext
+    .MergeCells = False
+End With
+Columns("A:A").ColumnWidth = 35
+    
+EndMacro:
+End Sub
+
+Public Function CurrentEmptyRow(startingRow As Integer) As Integer
+Dim rowIndex As Integer
+rowIndex = startingRow
+
+While True
+    If Sheets("Output").Cells(rowIndex, 1).Value = 0 Then
+        GoTo EndWhile
+    Else
+        rowIndex = rowIndex + 1
+    End If
+Wend
+
+EndWhile:
+
+CurrentEmptyRow = rowIndex
+End Function
+Sub CopyDataSet(startingRowIndex)
+    Worksheets("Data Input").Range(Cells(11, 2), Cells(12 + Cells(8, 9).Value, 12)).Copy
+    Worksheets("Output").Select
+    Cells(startingRowIndex, 1).PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks _
+        :=False, Transpose:=False
+End Sub
+Sub GetAverages(processName, startingRowIndex)
+Dim Sum As Double
+Sum = 0
+Dim rowIndex As Integer
+rowIndex = 12
+COL_INDEX = 12
+While True
+    If Cells(rowIndex, COL_INDEX).Value = 0 Then
+    GoTo EndWhile:
+    End If
+    If Cells(rowIndex, COL_INDEX).Value = processName Then
+        Sum = Sum + Cells(rowIndex, 8).Value
+        rowIndex = rowIndex + 1
+    Else
+        rowIndex = rowIndex + 1
+    End If
+Wend
+EndWhile:
+
+Dim colOutputIndex As Integer
+colOutputIndex = 1
+
+' Total Time in Seconds '
+Worksheets("Output").Cells(startingRowIndex, colOutputIndex) = processName + " Total Time [s]:"
+Worksheets("Output").Cells(startingRowIndex, colOutputIndex + 1) = Sum
+Call Highlight(Worksheets("Output").Cells(startingRowIndex, colOutputIndex + 1))
+
+' Average Time in Seconds '
+Worksheets("Output").Cells(startingRowIndex + 1, colOutputIndex) = processName + " Average Time [s]:"
+Worksheets("Output").Cells(startingRowIndex + 1, colOutputIndex + 1) = Sum / Worksheets("Data Input").Cells(6, 9).Value
+Call Highlight(Worksheets("Output").Cells(startingRowIndex + 1, colOutputIndex + 1))
+
+' Average Time in Hours '
+Worksheets("Output").Cells(startingRowIndex + 2, colOutputIndex) = processName + " Average Time [hr]:"
+Worksheets("Output").Cells(startingRowIndex + 2, colOutputIndex + 1) = (Sum / Worksheets("Data Input").Cells(6, 9).Value) / 3600
+Call Highlight(Worksheets("Output").Cells(startingRowIndex + 2, colOutputIndex + 1))
+
+' Parts per hour '
+Worksheets("Output").Cells(startingRowIndex + 3, colOutputIndex) = processName + " Parts/Hour:"
+Worksheets("Output").Cells(startingRowIndex + 3, colOutputIndex + 1) = 1 / ((Sum / Worksheets("Data Input").Cells(6, 9).Value) / 3600)
+Call Highlight(Worksheets("Output").Cells(startingRowIndex + 3, colOutputIndex + 1))
+
+End Sub
+
+Sub ClearRow(gridArea)
+    gridArea.Borders(xlDiagonalDown).LineStyle = xlNone
+    gridArea.Borders(xlDiagonalUp).LineStyle = xlNone
+    gridArea.Borders(xlEdgeLeft).LineStyle = xlNone
+    gridArea.Borders(xlEdgeTop).LineStyle = xlNone
+    gridArea.Borders(xlEdgeBottom).LineStyle = xlNone
+    gridArea.Borders(xlEdgeRight).LineStyle = xlNone
+    gridArea.Borders(xlInsideVertical).LineStyle = xlNone
+    gridArea.Borders(xlInsideHorizontal).LineStyle = xlNone
+    gridArea.Borders(xlDiagonalDown).LineStyle = xlNone
+    gridArea.Borders(xlDiagonalUp).LineStyle = xlNone
+    gridArea.Borders(xlEdgeLeft).LineStyle = xlNone
+    With gridArea.Borders(xlEdgeTop)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    gridArea.Borders(xlEdgeBottom).LineStyle = xlNone
+    gridArea.Borders(xlEdgeRight).LineStyle = xlNone
+    gridArea.Borders(xlInsideVertical).LineStyle = xlNone
+    gridArea.Borders(xlInsideHorizontal).LineStyle = xlNone
+End Sub
+
+
+Sub Highlight(gridArea)
+    With gridArea
+        .HorizontalAlignment = xlGeneral
+        .VerticalAlignment = xlCenter
+        .WrapText = False
+        .Orientation = 0
+        .AddIndent = False
+        .IndentLevel = 0
+        .ShrinkToFit = False
+        .ReadingOrder = xlContext
+        .MergeCells = False
+    End With
+    With gridArea
+        .HorizontalAlignment = xlGeneral
+        .VerticalAlignment = xlBottom
+        .WrapText = False
+        .Orientation = 0
+        .AddIndent = False
+        .IndentLevel = 0
+        .ShrinkToFit = False
+        .ReadingOrder = xlContext
+        .MergeCells = False
+    End With
+    With gridArea
+        .HorizontalAlignment = xlCenter
+        .VerticalAlignment = xlBottom
+        .WrapText = False
+        .Orientation = 0
+        .AddIndent = False
+        .IndentLevel = 0
+        .ShrinkToFit = False
+        .ReadingOrder = xlContext
+        .MergeCells = False
+    End With
+    With gridArea
+        .HorizontalAlignment = xlCenter
+        .VerticalAlignment = xlCenter
+        .WrapText = False
+        .Orientation = 0
+        .AddIndent = False
+        .IndentLevel = 0
+        .ShrinkToFit = False
+        .ReadingOrder = xlContext
+        .MergeCells = False
+    End With
+    With gridArea.Interior
+        .Pattern = xlSolid
+        .PatternColorIndex = xlAutomatic
+        .ThemeColor = xlThemeColorAccent4
+        .TintAndShade = 0.799981688894314
+        .PatternTintAndShade = 0
+    End With
+    gridArea.Font.Bold = True
+End Sub
+
+Sub ClearOutputPage()
+confirm = MsgBox("This will clear the entire output sheet.  Continue?", vbYesNo + vbQuestion, "Time Study Tool")
+If confirm = vbYes Then
+    Worksheets("Output").Cells.clear
+Else
+End If
+End Sub
+
