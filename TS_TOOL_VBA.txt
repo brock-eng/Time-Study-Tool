@@ -34,7 +34,7 @@ If rowIndex = startingRow Then
     Cells(rowIndex, COL_INDEX + 4) = time - downtime
     Cells(rowIndex, COL_INDEX + 5) = (time - downtime) / 3600
     Cells(rowIndex, COL_INDEX + 6) = notes
-    Cells(rowIndex, COL_INDEX - 2) = 1
+    Cells(rowIndex, COL_INDEX - 2) = "Start"
     Cells(rowIndex, COL_INDEX - 1) = Cells(7, 4)
     Cells(rowIndex, COL_INDEX + 7) = 1
     Cells(8, 9).Value = 0
@@ -44,10 +44,16 @@ Else
     Cells(rowIndex, COL_INDEX + 4) = Cells(rowIndex, COL_INDEX + 2) - downtime
     Cells(rowIndex, COL_INDEX + 5) = Cells(rowIndex, COL_INDEX + 4).Value / 3600
     Cells(rowIndex, COL_INDEX + 6) = notes
-    Cells(rowIndex, COL_INDEX - 2) = Cells(rowIndex - 1, COL_INDEX - 2) + 1 'index marker
     Cells(rowIndex, COL_INDEX - 1) = Cells(7, 4)
     Cells(rowIndex, COL_INDEX + 7) = Cells(9, 9)
     Cells(8, 9).Value = Cells(8, 9).Value + 1
+    
+    ' Index Marker
+    If Cells(rowIndex - 1, COL_INDEX - 2).Value = "Start" Then
+        Cells(rowIndex, COL_INDEX - 2).Value = 1
+    Else
+        Cells(rowIndex, COL_INDEX - 2) = Cells(rowIndex - 1, COL_INDEX - 2) + 1
+    End If
 End If
 
 Cells(rowIndex, COL_INDEX + 8).Formula = "=IF(ISNA(VLOOKUP(R[0]C[-1], R4C11:R9C12, 2)), 0,VLOOKUP(R[0]C[-1], R4C11:R9C12, 2))"
@@ -185,15 +191,24 @@ End Sub
 
 Sub export()
 
+If Cells(12, 2).Value = 0 Then
+    Message = MsgBox("No data entered", vbOKOnly, "Time Study Tool")
+    GoTo EndMacro
+End If
+
 Dim rowIndex As Integer
 rowIndex = 1
 
 rowIndex = CurrentEmptyRow(1)
+Worksheets("Output").Cells(rowIndex, 1) = "---"
+rowIndex = rowIndex + 1
 Worksheets("Output").Cells(rowIndex, 1) = Worksheets("Data Input").Cells(5, 7)
-Call Highlight(Worksheets("Output").Cells(rowIndex, 1))
+Call Highlight(Worksheets("Output").Cells(rowIndex, 1), 0)
 rowIndex = rowIndex + 1
 
-Call CopyDataSet(rowIndex)
+If ActiveSheet.Shapes("Check Box 8").ControlFormat.Value = 1 Then
+    Call CopyDataSet(rowIndex)
+End If
 
 rowIndex = CurrentEmptyRow(rowIndex)
 
@@ -206,11 +221,12 @@ For processRowIndex = 1 To 6
         GoTo NextProcess
     Else
         processName = Cells(processRowIndex + 3, 12)
-        Call GetAverages(processName, rowIndex)
+        Call GetAverages(processName, rowIndex, 1 / processRowIndex + 0.1)
         rowIndex = CurrentEmptyRow(rowIndex)
     End If
 NextProcess:
 Next processRowIndex
+rowIndex = CurrentEmptyRow(rowIndex)
 
 Worksheets("Output").Select
 Cells(rowIndex, 1).Select
@@ -247,12 +263,20 @@ EndWhile:
 CurrentEmptyRow = rowIndex
 End Function
 Sub CopyDataSet(startingRowIndex)
-    Worksheets("Data Input").Range(Cells(11, 2), Cells(12 + Cells(8, 9).Value, 12)).Copy
+    Dim dataLength As Integer
+    dataLength = Cells(8, 9).Value
+    
+    Worksheets("Data Input").Range(Cells(11, 2), Cells(12 + dataLength, 12)).Copy
     Worksheets("Output").Select
     Cells(startingRowIndex, 1).PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks _
         :=False, Transpose:=False
+    Cells(startingRowIndex, 1).PasteSpecial Paste:=xlPasteFormats, Operation:=xlNone, SkipBlanks _
+        :=False, Transpose:=False
+    
 End Sub
-Sub GetAverages(processName, startingRowIndex)
+Sub GetAverages(processName, startingRowIndex, tint)
+
+' Obtaining full sum '
 Dim Sum As Double
 Sum = 0
 Dim rowIndex As Integer
@@ -271,28 +295,73 @@ While True
 Wend
 EndWhile:
 
+' Obtaining summed differences '
+Dim summedSquares As Double
+Dim averageTimeSeconds As Integer
+Dim numParts As Integer
+summedSquares = 0
+numParts = Worksheets("Data Input").Cells(6, 9).Value
+averageTimeSeconds = Sum / numParts
+rowIndex = 12
+While True
+    If Cells(rowIndex, COL_INDEX).Value = 0 Then
+    GoTo EndWhile2:
+    End If
+    If Cells(rowIndex, COL_INDEX).Value = processName And Not Cells(rowIndex, 2).Value = "Start" Then
+        summedSquares = summedSquares + (Cells(rowIndex, 8).Value - averageTimeSeconds) * (Cells(rowIndex, 8).Value - averageTimeSeconds)
+        rowIndex = rowIndex + 1
+    Else
+        rowIndex = rowIndex + 1
+    End If
+Wend
+EndWhile2:
+Dim stdDevSeconds As Double
+stdDevSeconds = (summedSquares / (numParts)) ^ (0.5)
+
 Dim colOutputIndex As Integer
 colOutputIndex = 1
 
-' Total Time in Seconds '
-Worksheets("Output").Cells(startingRowIndex, colOutputIndex) = processName + " Total Time [s]:"
-Worksheets("Output").Cells(startingRowIndex, colOutputIndex + 1) = Sum
-Call Highlight(Worksheets("Output").Cells(startingRowIndex, colOutputIndex + 1))
+On Error Resume Next
+    ' Total Time in Seconds '
+    Worksheets("Output").Cells(startingRowIndex, colOutputIndex) = processName + " Total Time [s]:"
+    Worksheets("Output").Cells(startingRowIndex, colOutputIndex + 1) = Sum
+    Call Highlight(Worksheets("Output").Cells(startingRowIndex, colOutputIndex + 1), tint)
+    
+    ' Total Time in Hours '
+    startingRowIndex = startingRowIndex + 1
+    Worksheets("Output").Cells(startingRowIndex, colOutputIndex) = processName + " Total Time [hr]:"
+    Worksheets("Output").Cells(startingRowIndex, colOutputIndex + 1) = Sum / 3600
+    Call Highlight(Worksheets("Output").Cells(startingRowIndex, colOutputIndex + 1), tint)
+    Call Format(Worksheets("Output").Cells(startingRowIndex, colOutputIndex + 1), 3)
+    
+    ' Average Time in Seconds '
+    startingRowIndex = startingRowIndex + 1
+    Worksheets("Output").Cells(startingRowIndex, colOutputIndex) = processName + " Average Time [s]:"
+    Worksheets("Output").Cells(startingRowIndex, colOutputIndex + 1) = averageTimeSeconds
+    Call Highlight(Worksheets("Output").Cells(startingRowIndex, colOutputIndex + 1), tint)
+    Call Format(Worksheets("Output").Cells(startingRowIndex, colOutputIndex + 1), 2)
+    
+    ' Avg Time Std Dev in Seconds'
+    startingRowIndex = startingRowIndex + 1
+    Worksheets("Output").Cells(startingRowIndex, colOutputIndex) = processName + " Avg Time Std Dev [s]:"
+    Worksheets("Output").Cells(startingRowIndex, colOutputIndex + 1) = stdDevSeconds
+    Call Highlight(Worksheets("Output").Cells(startingRowIndex, colOutputIndex + 1), tint)
+    Call Format(Worksheets("Output").Cells(startingRowIndex, colOutputIndex + 1), 2)
+    
+    ' Average Time in Hours '
+    startingRowIndex = startingRowIndex + 1
+    Worksheets("Output").Cells(startingRowIndex, colOutputIndex) = processName + " Average Time [hr]:"
+    Worksheets("Output").Cells(startingRowIndex, colOutputIndex + 1) = (Sum / Worksheets("Data Input").Cells(6, 9).Value) / 3600
+    Call Highlight(Worksheets("Output").Cells(startingRowIndex, colOutputIndex + 1), tint)
+    Call Format(Worksheets("Output").Cells(startingRowIndex, colOutputIndex + 1), 3)
+    
+    ' Parts per hour '
+    startingRowIndex = startingRowIndex + 1
+    Worksheets("Output").Cells(startingRowIndex, colOutputIndex) = processName + " Parts/Hour:"
+    Worksheets("Output").Cells(startingRowIndex, colOutputIndex + 1) = 1 / ((Sum / Worksheets("Data Input").Cells(6, 9).Value) / 3600)
+    Call Highlight(Worksheets("Output").Cells(startingRowIndex, colOutputIndex + 1), tint)
+    Call Format(Worksheets("Output").Cells(startingRowIndex, colOutputIndex + 1), 2)
 
-' Average Time in Seconds '
-Worksheets("Output").Cells(startingRowIndex + 1, colOutputIndex) = processName + " Average Time [s]:"
-Worksheets("Output").Cells(startingRowIndex + 1, colOutputIndex + 1) = Sum / Worksheets("Data Input").Cells(6, 9).Value
-Call Highlight(Worksheets("Output").Cells(startingRowIndex + 1, colOutputIndex + 1))
-
-' Average Time in Hours '
-Worksheets("Output").Cells(startingRowIndex + 2, colOutputIndex) = processName + " Average Time [hr]:"
-Worksheets("Output").Cells(startingRowIndex + 2, colOutputIndex + 1) = (Sum / Worksheets("Data Input").Cells(6, 9).Value) / 3600
-Call Highlight(Worksheets("Output").Cells(startingRowIndex + 2, colOutputIndex + 1))
-
-' Parts per hour '
-Worksheets("Output").Cells(startingRowIndex + 3, colOutputIndex) = processName + " Parts/Hour:"
-Worksheets("Output").Cells(startingRowIndex + 3, colOutputIndex + 1) = 1 / ((Sum / Worksheets("Data Input").Cells(6, 9).Value) / 3600)
-Call Highlight(Worksheets("Output").Cells(startingRowIndex + 3, colOutputIndex + 1))
 
 End Sub
 
@@ -321,7 +390,7 @@ Sub ClearRow(gridArea)
 End Sub
 
 
-Sub Highlight(gridArea)
+Sub Highlight(gridArea, Optional tintShade = 0.799981688894314)
     With gridArea
         .HorizontalAlignment = xlGeneral
         .VerticalAlignment = xlCenter
@@ -370,12 +439,22 @@ Sub Highlight(gridArea)
         .Pattern = xlSolid
         .PatternColorIndex = xlAutomatic
         .ThemeColor = xlThemeColorAccent4
-        .TintAndShade = 0.799981688894314
+        .TintAndShade = tintShade
         .PatternTintAndShade = 0
     End With
     gridArea.Font.Bold = True
 End Sub
+Sub Format(gridArea, decimalPlaces As Integer)
 
+Dim numFormat As String
+numFormat = "0."
+For i = 1 To decimalPlaces
+    numFormat = numFormat + "0"
+Next i
+
+gridArea.NumberFormat = numFormat
+
+End Sub
 Sub ClearOutputPage()
 confirm = MsgBox("This will clear the entire output sheet.  Continue?", vbYesNo + vbQuestion, "Time Study Tool")
 If confirm = vbYes Then
